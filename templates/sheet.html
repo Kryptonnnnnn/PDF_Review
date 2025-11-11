@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Reviewed Sheet</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 40px; text-align: center; background: #fafafa; }
+        h2 { color: #333; }
+        table.styled-table {
+            margin: auto; border-collapse: collapse; width: 90%;
+            font-size: 14px; border-radius: 10px; overflow: hidden;
+            box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        }
+        table.styled-table thead tr {
+            background-color: #007bff; color: #ffffff; text-align: left;
+        }
+        table.styled-table th, table.styled-table td {
+            padding: 10px 15px; border: 1px solid #ddd;
+        }
+        table.styled-table tbody tr:nth-of-type(even) {
+            background-color: #f3f3f3;
+        }
+        a button {
+            margin-top: 20px;
+            padding: 10px 20px;
+            background-color: #6f42c1;
+            color: white;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h2>📄 Current Review Sheet</h2>
+    {{ table_html | safe }}
+    <br>
+    <a href="/viewer"><button>⬅ Back to Reviewer</button></a>
+</body>
+</html>

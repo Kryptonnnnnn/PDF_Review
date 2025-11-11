@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Reviewer - Upload CSV</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="animated-bg"></div>
+    
+    {% with messages = get_flashed_messages() %}
+      {% if messages %}
+        <div class="flash-messages">
+          {% for msg in messages %}
+            <div class="flash">
+              <span style="font-size: 1.5rem;">✅</span>
+              <span>{{ msg }}</span>
+            </div>
+          {% endfor %}
+        </div>
+      {% endif %}
+    {% endwith %}
+
+    <div class="container">
+        <div class="card" style="max-width: 800px; margin: 5rem auto;">
+            <div class="header">
+                <h1>📄 PDF Reviewer</h1>
+                <p>Upload your CSV file to start reviewing PDF documents</p>
+            </div>
+
+            <form method="POST" enctype="multipart/form-data" id="uploadForm">
+                <div class="upload-zone" onclick="document.getElementById('fileInput').click()">
+                    <div class="upload-icon">📁</div>
+                    <h3 style="margin-bottom: 1rem; color: var(--primary);">Drop your CSV file here</h3>
+                    <p style="color: var(--gray); margin-bottom: 1.5rem;">or click to browse</p>
+                    
+                    <div class="file-input-wrapper">
+                        <input type="file" name="csv_file" id="fileInput" accept=".csv" required onchange="showFileName()">
+                        <label for="fileInput" class="file-input-label">
+                            <span>Choose File</span>
+                        </label>
+                    </div>
+                    
+                    <p id="fileName" style="margin-top: 1rem; color: var(--success); font-weight: 600;"></p>
+                </div>
+
+                <div style="text-align: center; margin-top: 2rem;">
+                    <button type="submit" class="btn btn-primary" style="font-size: 1.1rem; padding: 1.25rem 3rem;">
+                        <span>🚀</span>
+                        <span>Start Reviewing</span>
+                    </button>
+                </div>
+            </form>
+
+            <div style="margin-top: 3rem; padding: 2rem; background: rgba(99, 102, 241, 0.05); border-radius: 12px;">
+                <h4 style="margin-bottom: 1rem; color: var(--primary);">📋 CSV Requirements:</h4>
+                <ul style="text-align: left; color: var(--gray); line-height: 1.8;">
+                    <li>File must contain a column named <strong>"link"</strong></li>
+                    <li>Each row should have a valid PDF URL</li>
+                    <li>Duplicate links will be automatically removed</li>
+                    <li>A "Status" column will be added for tracking</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        function showFileName() {
+            const input = document.getElementById('fileInput');
+            const fileName = document.getElementById('fileName');
+            if (input.files.length > 0) {
+                fileName.textContent = `✓ Selected: ${input.files[0].name}`;
+            }
+        }
+
+        // Drag and drop functionality
+        const uploadZone = document.querySelector('.upload-zone');
+        
+        uploadZone.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadZone.style.borderColor = 'var(--secondary)';
+            uploadZone.style.background = 'rgba(139, 92, 246, 0.1)';
+        });
+
+        uploadZone.addEventListener('dragleave', () => {
+            uploadZone.style.borderColor = 'var(--primary)';
+            uploadZone.style.background = 'rgba(99, 102, 241, 0.05)';
+        });
+
+        uploadZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            const files = e.dataTransfer.files;
+            if (files.length > 0) {
+                document.getElementById('fileInput').files = files;
+                showFileName();
+            }
+            uploadZone.style.borderColor = 'var(--primary)';
+            uploadZone.style.background = 'rgba(99, 102, 241, 0.05)';
+        });
+    </script>
+</body>
+</html>
