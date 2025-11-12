@@ -1,49 +1,324 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
-    <title>PDF Reviewer</title>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; background: #f5f5f5; }
-        iframe { width: 80%; height: 80vh; border: 1px solid #ccc; border-radius: 8px; }
-        button {
-            padding: 10px 20px; margin: 8px; font-size: 16px;
-            border: none; border-radius: 6px; cursor: pointer;
-        }
-        .accept { background: #28a745; color: white; }
-        .reject { background: #dc3545; color: white; }
-        .nav { background: #007bff; color: white; }
-        .export { background: #ff9800; color: white; }
-        .sheet { background: #6f42c1; color: white; }
-        .status { font-weight: bold; color: #333; }
-    </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PDF Reviewer - Document {{index}}/{{total}}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
 </head>
 <body>
-    <h2>🗂 Reviewing {{index}} of {{total}}</h2>
+    <div class="animated-bg"></div>
 
     {% with messages = get_flashed_messages() %}
       {% if messages %}
-        {% for msg in messages %}
-          <p style="color: green;">{{ msg }}</p>
-        {% endfor %}
+        <div class="flash-messages">
+          {% for msg in messages %}
+            <div class="flash">
+              <span style="font-size: 1.5rem;">✅</span>
+              <span>{{ msg }}</span>
+            </div>
+          {% endfor %}
+        </div>
       {% endif %}
     {% endwith %}
 
-    <iframe src="{{pdf_link}}" title="{{name}}"></iframe>
-    <p class="status">Current Status: {{status if status else "Not reviewed"}}</p>
+    <div class="container">
+        <div class="card">
+            <div class="header">
+                <h1>📑 Document Review</h1>
+                <p>Review and approve or reject PDF documents</p>
+            </div>
 
-    <form method="POST">
-        <button name="action" value="Previous" class="nav">⬅ Previous</button>
-        <button name="action" value="Accepted" class="accept">✅ Accept</button>
-        <button name="action" value="Rejected" class="reject">❌ Reject</button>
-        <button name="action" value="Next" class="nav">Next ➡</button>
-    </form>
+            <!-- Progress Bar -->
+            <div style="margin: 2rem 0;">
+                <div style="display: flex; justify-content: space-between; margin-bottom: 0.5rem;">
+                    <span style="font-weight: 600; color: var(--dark);">Progress</span>
+                    <span style="font-weight: 600; color: var(--primary);">{{index}} / {{total}}</span>
+                </div>
+                <div class="progress-bar">
+                    <div class="progress-fill" style="width: {{ (index / total * 100) }}%"></div>
+                </div>
+            </div>
 
-    <br>
-    <a href="/view_sheet">
-        <button type="button" class="sheet">📊 View Sheet</button>
-    </a>
-    <a href="/download_results">
-        <button type="button" class="export">📤 Export Reviewed CSV</button>
-    </a>
+            <!-- PDF Info -->
+            <div class="pdf-info">
+                <div>
+                    <h3 style="margin-bottom: 0.5rem; color: var(--dark);">📄 {{name}}</h3>
+                    <p style="color: var(--gray); font-size: 0.9rem;">Document {{index}} of {{total}}</p>
+                </div>
+                <div>
+                    {% if status and status != "" %}
+                        {% if status == "Accepted" %}
+                            <span class="status-badge status-accepted">✅ {{ status }}</span>
+                        {% elif status == "Rejected" %}
+                            <span class="status-badge status-rejected">❌ {{ status }}</span>
+                        {% else %}
+                            <span class="status-badge status-pending">{{ status }}</span>
+                        {% endif %}
+                    {% else %}
+                        <span class="status-badge status-pending">⏳ Pending Review</span>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- PDF Viewer with Enhanced Controls -->
+            <div class="pdf-viewer-container">
+                <!-- PDF Toolbar -->
+                <div class="pdf-toolbar">
+                    <div class="toolbar-left">
+                        <button onclick="zoomOut()" class="toolbar-btn" title="Zoom Out">🔍−</button>
+                        <span id="zoomLevel" class="zoom-display">100%</span>
+                        <button onclick="zoomIn()" class="toolbar-btn" title="Zoom In">🔍+</button>
+                        <button onclick="resetZoom()" class="toolbar-btn" title="Reset Zoom">↺</button>
+                    </div>
+                    <div class="toolbar-center">
+                        <button onclick="rotatePDF()" class="toolbar-btn" title="Rotate">🔄</button>
+                        <button onclick="toggleFullscreen()" class="toolbar-btn" title="Fullscreen">⛶</button>
+                    </div>
+                    <div class="toolbar-right">
+                        <a href="{{pdf_link}}" target="_blank" class="toolbar-btn" title="Open in New Tab">↗</a>
+                        <button onclick="printPDF()" class="toolbar-btn" title="Print">🖨</button>
+                    </div>
+                </div>
+
+                <!-- PDF Display Area -->
+                <div class="pdf-display" id="pdfDisplay">
+                    <div class="pdf-wrapper" id="pdfWrapper">
+                        <iframe src="{{pdf_link}}" class="pdf-frame" id="pdfFrame" title="{{name}}"></iframe>
+                        <div class="pdf-loading">
+                            <div class="loading-spinner"></div>
+                            <p>Loading PDF...</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PDF Mini Toolbar (Floating) -->
+                <div class="mini-toolbar">
+                    <button onclick="previousPage()" class="mini-btn" title="Previous Page">◀</button>
+                    <span class="page-info" id="pageInfo">Page 1</span>
+                    <button onclick="nextPage()" class="mini-btn" title="Next Page">▶</button>
+                </div>
+            </div>
+
+            <!-- Navigation and Decision Controls -->
+            <form method="POST">
+                <div class="controls">
+                    <button name="action" value="Previous" class="btn btn-info" {% if index <= 1 %}disabled style="opacity: 0.5;"{% endif %}>
+                        <span>⬅</span>
+                        <span>Previous</span>
+                    </button>
+
+                    <button name="action" value="Rejected" class="btn btn-danger">
+                        <span>❌</span>
+                        <span>Reject</span>
+                    </button>
+
+                    <button name="action" value="Accepted" class="btn btn-success">
+                        <span>✅</span>
+                        <span>Accept</span>
+                    </button>
+
+                    <button name="action" value="Next" class="btn btn-info" {% if index >= total %}disabled style="opacity: 0.5;"{% endif %}>
+                        <span>Next</span>
+                        <span>➡</span>
+                    </button>
+                </div>
+            </form>
+
+            <!-- Additional Actions -->
+            <div style="display: flex; gap: 1rem; justify-content: center; margin-top: 2rem; flex-wrap: wrap;">
+                <a href="/view_sheet" style="text-decoration: none;">
+                    <button type="button" class="btn btn-warning">
+                        <span>📊</span>
+                        <span>View Sheet</span>
+                    </button>
+                </a>
+
+                <a href="/download_results" style="text-decoration: none;">
+                    <button type="button" class="btn btn-primary">
+                        <span>📥</span>
+                        <span>Download Results</span>
+                    </button>
+                </a>
+            </div>
+
+            <!-- Quick Stats -->
+            <div style="margin-top: 3rem; padding: 2rem; background: linear-gradient(135deg, rgba(99, 102, 241, 0.05) 0%, rgba(139, 92, 246, 0.05) 100%); border-radius: 12px;">
+                <h4 style="text-align: center; margin-bottom: 1.5rem; color: var(--primary);">Quick Stats</h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; text-align: center;">
+                    <div>
+                        <div style="font-size: 2rem; font-weight: 800; color: var(--success);">{{accepted_count}}</div>
+                        <div style="color: var(--gray); font-size: 0.9rem;">Accepted</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 2rem; font-weight: 800; color: var(--danger);">{{rejected_count}}</div>
+                        <div style="color: var(--gray); font-size: 0.9rem;">Rejected</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 2rem; font-weight: 800; color: var(--warning);">{{pending_count}}</div>
+                        <div style="color: var(--gray); font-size: 0.9rem;">Pending</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 2rem; font-weight: 800; color: var(--primary);">{{total}}</div>
+                        <div style="color: var(--gray); font-size: 0.9rem;">Total</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Keyboard Shortcuts Guide -->
+            <div style="margin-top: 2rem; padding: 2rem; background: rgba(30, 41, 59, 0.05); border-radius: 12px;">
+                <h4 style="text-align: center; margin-bottom: 1.5rem; color: var(--dark); display: flex; align-items: center; justify-content: center; gap: 0.5rem;">
+                    ⌨️ Keyboard Shortcuts
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; font-size: 0.9rem;">
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <kbd style="background: var(--dark); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-family: monospace;">←</kbd>
+                        <span style="color: var(--gray);">Previous PDF</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <kbd style="background: var(--dark); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-family: monospace;">→</kbd>
+                        <span style="color: var(--gray);">Next PDF</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <kbd style="background: var(--success); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-family: monospace;">A</kbd>
+                        <span style="color: var(--gray);">Accept</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <kbd style="background: var(--danger); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-family: monospace;">R</kbd>
+                        <span style="color: var(--gray);">Reject</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <kbd style="background: var(--dark); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-family: monospace;">+</kbd>
+                        <span style="color: var(--gray);">Zoom In</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <kbd style="background: var(--dark); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-family: monospace;">-</kbd>
+                        <span style="color: var(--gray);">Zoom Out</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <kbd style="background: var(--dark); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-family: monospace;">0</kbd>
+                        <span style="color: var(--gray);">Reset Zoom</span>
+                    </div>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <kbd style="background: var(--dark); color: white; padding: 0.25rem 0.5rem; border-radius: 4px; font-family: monospace;">F</kbd>
+                        <span style="color: var(--gray);">Fullscreen</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let currentZoom = 100;
+        let currentRotation = 0;
+
+        // PDF Controls
+        function zoomIn() {
+            if (currentZoom < 200) {
+                currentZoom += 10;
+                applyZoom();
+            }
+        }
+
+        function zoomOut() {
+            if (currentZoom > 50) {
+                currentZoom -= 10;
+                applyZoom();
+            }
+        }
+
+        function resetZoom() {
+            currentZoom = 100;
+            currentRotation = 0;
+            applyZoom();
+            applyRotation();
+        }
+
+        function applyZoom() {
+            const wrapper = document.getElementById('pdfWrapper');
+            wrapper.style.transform = `scale(${currentZoom / 100}) rotate(${currentRotation}deg)`;
+            document.getElementById('zoomLevel').textContent = currentZoom + '%';
+        }
+
+        function rotatePDF() {
+            currentRotation = (currentRotation + 90) % 360;
+            applyRotation();
+        }
+
+        function applyRotation() {
+            const wrapper = document.getElementById('pdfWrapper');
+            wrapper.style.transform = `scale(${currentZoom / 100}) rotate(${currentRotation}deg)`;
+        }
+
+        function toggleFullscreen() {
+            const display = document.getElementById('pdfDisplay');
+            if (!document.fullscreenElement) {
+                display.requestFullscreen().catch(err => {
+                    console.error('Error entering fullscreen:', err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        function printPDF() {
+            window.open('{{pdf_link}}', '_blank');
+        }
+
+        // Page navigation (for PDFs that support it)
+        function previousPage() {
+            // This is limited by iframe restrictions
+            alert('⚠️ Page navigation is limited in iframe mode. Use the PDF viewer controls inside the document.');
+        }
+
+        function nextPage() {
+            alert('⚠️ Page navigation is limited in iframe mode. Use the PDF viewer controls inside the document.');
+        }
+
+        // Hide loading spinner when PDF loads
+        const pdfFrame = document.getElementById('pdfFrame');
+        pdfFrame.addEventListener('load', () => {
+            document.querySelector('.pdf-loading').style.display = 'none';
+        });
+
+        // Keyboard shortcuts
+        document.addEventListener('keydown', (e) => {
+            // Prevent shortcuts when typing in input fields
+            if (e.target.tagName === 'INPUT' || e.target.tagName === 'TEXTAREA') return;
+
+            if (e.key === 'ArrowLeft' && {{index}} > 1) {
+                document.querySelector('button[value="Previous"]').click();
+            } else if (e.key === 'ArrowRight' && {{index}} < {{total}}) {
+                document.querySelector('button[value="Next"]').click();
+            } else if (e.key === 'a' || e.key === 'A') {
+                document.querySelector('button[value="Accepted"]').click();
+            } else if (e.key === 'r' || e.key === 'R') {
+                document.querySelector('button[value="Rejected"]').click();
+            } else if (e.key === '+' || e.key === '=') {
+                zoomIn();
+            } else if (e.key === '-' || e.key === '_') {
+                zoomOut();
+            } else if (e.key === '0') {
+                resetZoom();
+            } else if (e.key === 'f' || e.key === 'F') {
+                toggleFullscreen();
+            }
+        });
+
+        // Auto-hide flash messages
+        setTimeout(() => {
+            const flashMessages = document.querySelectorAll('.flash');
+            flashMessages.forEach(msg => {
+                msg.style.animation = 'slideOutRight 0.4s ease-out';
+                setTimeout(() => msg.remove(), 400);
+            });
+        }, 3000);
+
+        // Smooth scroll on page load
+        window.addEventListener('load', () => {
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        });
+    </script>
 </body>
 </html>
